@@ -27,6 +27,12 @@ class Camera:
     def move_bottom(self, time):
         self.position -= self.direction * (self.speed * time)
 
+    def move_up(self, time):
+        self.position += glm.vec3(0, 1, 0) * self.speed * time
+
+    def move_down(self, time):
+        self.position -= glm.vec3(0, 1, 0) * self.speed * time
+
     def rotate(self, offset_x, offset_y):
         self.yaw += offset_x * self.sensitivity
         self.pitch += offset_y * self.sensitivity

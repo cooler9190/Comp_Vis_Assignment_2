@@ -23,9 +23,11 @@ def set_voxel_positions(width, height, depth):
     for x in range(width):
         for y in range(height):
             for z in range(depth):
-                if random.randint(0, 1000) < 5:
-                    data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
-                    colors.append([x / width, z / depth, y / height])
+                data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
+                colors.append([x / width, z / depth, y / height])
+                # if random.randint(0, 1000) < 5:
+                #     data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
+                #     colors.append([x / width, z / depth, y / height])
     return data, colors
 
 
