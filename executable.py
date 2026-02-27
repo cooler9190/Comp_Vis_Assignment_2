@@ -209,9 +209,9 @@ def move_input(win, time):
         camera.move_left(time)
     if glfw.get_key(win, glfw.KEY_D) == glfw.PRESS:
         camera.move_right(time)
-    if glfw.get_key(win, glfw.KEY_Q) == glfw.PRESS:
+    if glfw.get_key(win, glfw.KEY_SPACE) == glfw.PRESS:
         camera.move_up(time)
-    if glfw.get_key(win, glfw.KEY_E) == glfw.PRESS:
+    if glfw.get_key(win, glfw.KEY_LEFT_SHIFT) == glfw.PRESS:
         camera.move_down(time)
 
 
