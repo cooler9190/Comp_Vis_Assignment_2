@@ -1,0 +1,7 @@
+Optimization complete!
+Best Parameters: {'varThreshold': 36, 'kernel_size': (3, 3), 'open_iters': 4, 'close_iters': 4}
+Best Error Score: 1962
+
+Optimization complete!
+Best Parameters: {'varThreshold': 32, 'kernel_size': (3, 3), 'open_iters': 4, 'close_iters': 4}
+Best Error Score: 1957
