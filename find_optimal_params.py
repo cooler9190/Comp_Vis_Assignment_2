@@ -1,65 +1,7 @@
-# import numpy as np
-# import cv2 as cv
-
-# test_frame = cv.imread('data/cam1/test_frame_cam1.png')
-
-# ground_truth = cv.imread('data/cam1/ground_truth_cam1.png', cv.IMREAD_GRAYSCALE)
-
-# kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (2, 2))
-
-# best_error = float('inf')
-# best_params = {}
-
-# print("MOG2 optimization in progress. Please wait...")
-
-# for var_thresh in:
-#     for open_iters in:
-#         for clsoe_iters in:
-#             fgbg = cv.createBackgroundSubtractorMOG2(varThreshold=var_thresh, detectShadows=True)
-#             cap_bg = cv.VideoCapture('data/cam1/background.avi')
-
-#             while True:
-#                 ret, frame = cap_bg.read()
-#                 if not ret:
-#                     print("Can't receive frame. Exiting ...")
-#                     break
-#                 fgbg.apply(frame)
-#                 cap_bg.release()
-
-#             raw_mask = fgbg.apply(test_frame, learningRate=0)
-
-#             _, binary_mask = cv.threshold(raw_mask, 254, 255, cv.THRESH_BINARY)
-
-#             erosion = cv.erode(binary_mask, kernel, iterations=open_iters)
-#             opening = cv.dilate(erosion, kernel, iterations=open_iters)
-
-#             dilation = cv.dilate(opening, kernel, iterations=clsoe_iters)
-#             final_mask = cv.erode(dilation, kernel, iterations=clsoe_iters)
-
-#             error_img = cv.bitwise_xor(final_mask, ground_truth)
-
-#             error_score = cv.countNonZero(error_img)
-
-#             print(f"varThreshold: {var_thresh}, open_iters: {open_iters}, close_iters: {clsoe_iters} | Error Score: {error_score}")
-
-#             if error_score < best_error:
-#                 best_error = error_score
-#                 best_params = {
-#                     'varThreshold': var_thresh,
-#                     'open_iters': open_iters,
-#                     'close_iters': clsoe_iters
-#                 }
-
-# print("\nOptimization complete!")
-# print(f"Best Parameters: {best_params}")
-# print(f"Best Error Score: {best_error}")
-
-
-import numpy as np
 import cv2 as cv
 
-test_frame = cv.imread('data/cam1/test_frame_cam1.png')
-ground_truth = cv.imread('data/cam1/ground_truth_cam1.png', cv.IMREAD_GRAYSCALE)
+test_frame = cv.imread('data/cam4/test_frame_cam4.png')
+ground_truth = cv.imread('data/cam4/ground_truth_cam4.png', cv.IMREAD_GRAYSCALE)
 kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (2, 2))
 
 best_error = float('inf')
@@ -73,7 +15,7 @@ print("MOG2 optimization in progress. Please wait...")
 for var_thresh in range(2, 101, 2): 
     
     fgbg = cv.createBackgroundSubtractorMOG2(varThreshold=var_thresh, detectShadows=True)
-    cap_bg = cv.VideoCapture('data/cam1/background.avi')
+    cap_bg = cv.VideoCapture('data/cam4/background.avi')
 
     # Train the background model
     while True:

@@ -6,14 +6,14 @@ import cv2 as cv
 kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))
 
 # Create the background subtractor object using MOG2 algorithm and Gaussian Mixture-based Background/Foreground Segmentatio
-fgbg = cv.createBackgroundSubtractorMOG2(varThreshold=32, detectShadows=True)
+fgbg = cv.createBackgroundSubtractorMOG2(varThreshold=100, detectShadows=True)
 
 # Phase 1: Background Learning
 # Read and process frames to learn the background model
 
 print("Learning background model. Please wait...")
 # Capture video from the specified path
-cap_bg = cv.VideoCapture('data/cam1/background.avi')
+cap_bg = cv.VideoCapture('data/cam4/background.avi')
 
 while True:
     ret, frame = cap_bg.read()
@@ -30,7 +30,7 @@ print("Background model learned.")
 # Phase 2: Apply the learned background model to the test video
 print("Applying background model to test video...")
 
-cap_test = cv.VideoCapture('data/cam1/video.avi')
+cap_test = cv.VideoCapture('data/cam4/video.avi')
 
 while True:
     ret, frame = cap_test.read()
@@ -44,12 +44,12 @@ while True:
 
     # Morphological operations to clean up the foreground mask
     # OPENING: Erosion followed by dilation to remove noise and small objects from the foreground mask
-    erosion = cv.erode(fg_mask, kernel, iterations=4)
-    opening = cv.dilate(erosion, kernel, iterations=4)
+    erosion = cv.erode(fg_mask, kernel, iterations=1)
+    opening = cv.dilate(erosion, kernel, iterations=1)
 
     # CLOSING: Dilation followed by erosion to fill small holes in the foreground mask
-    dilation = cv.dilate(opening, kernel, iterations=4)
-    closing = cv.erode(dilation, kernel, iterations=4)
+    dilation = cv.dilate(opening, kernel, iterations=5)
+    closing = cv.erode(dilation, kernel, iterations=5)
 
     cv.imshow('Foreground Mask', closing)
     cv.imshow('Original Frame', frame)

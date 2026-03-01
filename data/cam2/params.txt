@@ -1,0 +1,4 @@
+Optimization complete!
+Best Parameters: {'varThreshold': 26, 'kernel_size': (3, 3), 'open_iters': 5, 'close_iters': 2}
+Best Error Score: 1421
+PS C:\Users\Altai\Documents\GitHub\Comp_Vis_Assignment_2> 
