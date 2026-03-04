@@ -3,7 +3,7 @@ import cv2 as cv
 import glob
 import os
 
-# Clean set to delete manual images; given a pre-exported image sequence (from the intrinsic video, using premiere pro - export w/ 1 fps to have less images).
+# Clean set to delete manual images; given a pre-exported image sequence (from the intrinsic video, using premiere pro - export w/ 1 fps to have fewer images).
 
 # Using Code from https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html [source_1]
 # and https://docs.opencv.org/4.x/d7/d53/tutorial_py_pose.html [source_2]

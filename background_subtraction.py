@@ -123,7 +123,7 @@ def subtract_background(background_model):
             foreground_mask = output
 
         if show_model:
-            show_image(foreground_mask, "Oops")
+            show_image(foreground_mask, "foreground")
             cv.waitKey(0)
             cv.destroyAllWindows()
 
@@ -135,7 +135,7 @@ def main():
     background_model = create_background_model()
     if show_model:
         model = cv.cvtColor(background_model, cv.COLOR_HSV2BGR)
-        show_image(model, "Oops")
+        show_image(model, "background model")
         cv.waitKey(0)
         cv.destroyAllWindows()
     subtract_background(background_model)

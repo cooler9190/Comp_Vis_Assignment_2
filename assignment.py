@@ -1,6 +1,5 @@
 import os
 import glm
-import random
 import cv2 as cv
 import numpy as np
 
@@ -8,6 +7,7 @@ block_size = 1
 
 current_frame = 0
 frame_max = 100
+
 def generate_grid(width, depth):
     # Generates the floor grid locations
     # You don't need to edit this function
@@ -29,8 +29,8 @@ def create_cube_grid(width, height, depth):
     z_points = np.arange(z_range[0], z_range[1], block_size)
     
     # Return 3d grid.
-    X, Y, Z = np.meshgrid(x_points, y_points, z_points, indexing='ij')
-    return np.stack([X.ravel(), Y.ravel(), Z.ravel()], axis=-1)
+    x, y, z = np.meshgrid(x_points, y_points, z_points, indexing='ij')
+    return np.stack([x.ravel(), y.ravel(), z.ravel()], axis=-1)
 
 def load_camera_parameters():
     cameras = []
@@ -46,21 +46,50 @@ def load_camera_parameters():
         cv_file.release()
     return cameras
 
-def create_lookup_table(width, height, depth):
-    cube_grid = create_cube_grid(width, height, depth)
+def create_lookup_table(cube_grid, cameras):
+    cube_size = cube_grid.shape[0]
+    # Convert cube to correct coordinates (opengl)
+    world_cube = cube_grid.astype(np.float64) * 0.05 # Scale to fit.
+    world_cube = np.stack([world_cube[:, 0], world_cube[:, 2], -world_cube[:, 1]], axis=1) # openGL format.
 
+    # For each camera, create array with image points.
+    # These image points, are the voxel cube's points projected onto the current camera.
+    # The order is therefore consistent.
+    table = np.empty((4, cube_size, 2), dtype=int)
+    c = 0
+    for camera in cameras:
+        r = camera['rvec'].astype(np.float64)
+        t = camera['tvec'].astype(np.float64)
+        k = camera['cam_matrix'].astype(np.float64)
+        d = camera['distortion'].astype(np.float64)
+        # Can give points outside of image, since the cube contains points not visible with any camera (possibly).
+        image_points, _ = cv.projectPoints(world_cube, r, t, k, d)
+        rounded_points = np.rint(image_points[:, 0, :]).astype(int)
+        table[c] = rounded_points
+        c += 1
 
+    return table
 
-def set_voxel_positions(width, height, depth):
-    # Generates random voxel locations
-    # TODO: You need to calculate proper voxel arrays instead of random ones.
+def is_voxel_foreground(lookup_table, voxel_index, foregrounds):
+    for camera_index in range(0, 4):
+        foreground = foregrounds[camera_index] # Current foreground.
+        x, y = lookup_table[camera_index, voxel_index] # Image coordinate
 
+        # Boundary checking (since project points can give coordinates outside of image).
+        x_outside = x < 0 or x >= foreground.shape[1]
+        y_outside = y < 0 or y >= foreground.shape[0]
+        if x_outside or y_outside: return False # Outside of camera views.
+
+        # Voxel not visible by current camera, so return false.
+        if foreground[y, x] <= 0: return False # Flipped x y due to format.
+
+    # Voxel visible in all cameras.
+    return True
+
+def set_voxel_positions(lookup_table, cube_grid):
     # Reads 1 frame from all 4 cameras, applies background subtraction,
     # and uses the resulting masks to determine which voxels are ON/OFF in the first frame.
     if current_frame > (frame_max - 1): return Exception("Frame limit Reached")
-
-    grid = create_cube_grid(width, height, depth)
-
 
     # Obtain the 4 foreground for this frame.
     foregrounds = []
@@ -70,22 +99,24 @@ def set_voxel_positions(width, height, depth):
         foreground = cv.imread(foreground_path, cv.COLOR_BGR2GRAY)
         foregrounds.append(foreground)
 
-    data, colors = [], []
-    for x in range(width):
-        for y in range(height):
-            for z in range(depth):
-                data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
-                colors.append([x / width, z / depth, y / height])
-    return data, colors
+   # Create Truth/False mask for the cube, based on visible voxels.
+    voxel_count = cube_grid.shape[0]
+    cube_mask = np.full(voxel_count, False, dtype=bool)
+    for v in range(0, voxel_count):
+        cube_mask[v] = is_voxel_foreground(lookup_table, v, foregrounds)
+    # Create cube where all visible voxels are marked.
+    visible_voxels = cube_grid[cube_mask] # This turns off all non-visible voxels.
 
+    # Default color is white.
+    colors = np.ones((visible_voxels.shape[0], 3), dtype=np.float32)
+    return visible_voxels, colors
 
 def get_cam_positions(cameras):
-    # Generates dummy camera locations at the 4 corners of the room
-    # TODO: You need to input the estimated locations of the 4 cameras in the world coordinates.
-
+    # Empty init
     cam_positions = []
     cam_colors = [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 1.0, 0]]
 
+    # For every camera apply extrinsic variables and obtain position in openGL coordinate system.
     for cam in cameras:
         R = cam['rvec']
         R, _ = cv.Rodrigues(R)
@@ -102,25 +133,15 @@ def get_cam_positions(cameras):
         opengl_z = y # in OpenCV is often depth
 
         scale = 1.0
-
         cam_positions.append([opengl_x * scale, opengl_y * scale, opengl_z * scale])
 
     return cam_positions, cam_colors
 
-    # return [[-64 * block_size, 64 * block_size, 63 * block_size],
-    #         [63 * block_size, 64 * block_size, 63 * block_size],
-    #         [63 * block_size, 64 * block_size, -64 * block_size],
-    #         [-64 * block_size, 64 * block_size, -64 * block_size]], \
-    #     [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 1.0, 0]]
-
 
 def get_cam_rotation_matrices(cameras):
-    # Generates dummy camera rotation matrices, looking down 45 degrees towards the center of the room
-    # TODO: You need to input the estimated camera rotation matrices (4x4) of the 4 cameras in the world coordinates.
 
-    # Converts the OpenCV 3x3 roation matrices into 4x4 OpenGL model matrices
+    # Converts the OpenCV 3x3 rotation matrices into 4x4 OpenGL model matrices
     cam_rotations = []
-
     for cam in cameras:
         # R transforms World -> Camera. We need Camera -> World, which is R^T
         R = cam['rvec']
@@ -140,12 +161,4 @@ def get_cam_rotation_matrices(cameras):
 
         cam_rotations.append(glm_mat)
 
-    return cam_rotations
-
-    cam_angles = [[0, 45, -45], [0, 135, -45], [0, 225, -45], [0, 315, -45]]
-    cam_rotations = [glm.mat4(1), glm.mat4(1), glm.mat4(1), glm.mat4(1)]
-    for c in range(len(cam_rotations)):
-        cam_rotations[c] = glm.rotate(cam_rotations[c], cam_angles[c][0] * np.pi / 180, [1, 0, 0])
-        cam_rotations[c] = glm.rotate(cam_rotations[c], cam_angles[c][1] * np.pi / 180, [0, 1, 0])
-        cam_rotations[c] = glm.rotate(cam_rotations[c], cam_angles[c][2] * np.pi / 180, [0, 0, 1])
     return cam_rotations

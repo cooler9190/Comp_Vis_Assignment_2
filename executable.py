@@ -1,12 +1,13 @@
 import glm
 import glfw
+import cv2 as cv
 from engine.base.program import get_linked_program
 from engine.renderable.model import Model
 from engine.buffer.texture import *
 from engine.buffer.hdrbuffer import HDRBuffer
 from engine.buffer.blurbuffer import BlurBuffer
 from engine.effect.bloom import Bloom
-from assignment import set_voxel_positions, generate_grid, get_cam_positions, get_cam_rotation_matrices, create_lookup_table, load_camera_parameters
+from assignment import set_voxel_positions, generate_grid, get_cam_positions, get_cam_rotation_matrices, create_lookup_table, load_camera_parameters, create_cube_grid
 from engine.camera import Camera
 from engine.config import config
 
@@ -15,6 +16,17 @@ firstTime = True
 window_width, window_height = config['window_width'], config['window_height']
 camera = Camera(glm.vec3(0, 100, 0), pitch=-90, yaw=0, speed=40)
 cameras = load_camera_parameters()
+cube_grid = create_cube_grid(config['world_width'], config['world_height'], config['world_width'])
+lookup_table = create_lookup_table(cube_grid, cameras)
+
+# for report.
+# camera_counter = 1
+# for c in cameras:
+#     R = c['rvec']
+#     R, _ = cv.Rodrigues(R)
+#     print(camera_counter)
+#     print(R)
+#     camera_counter += 1
 
 def draw_objs(obj, program, perspective, light_pos, texture, normal, specular, depth):
     program.use()
@@ -118,10 +130,8 @@ def main():
     specular_grid = load_texture_2d('resources/textures/specular_grid.jpg')
     depth = load_texture_2d('resources/textures/depth.jpg')
     depth_grid = load_texture_2d('resources/textures/depth_grid.jpg')
-
     grid_positions, grid_colors = generate_grid(config['world_width'], config['world_width'])
-    # Create lookup table
-    create_lookup_table(config['world_width'], config['world_height'], config['world_width'])
+
     square.set_multiple_positions(grid_positions, grid_colors)
 
     cam_positions, cam_colors = get_cam_positions(cameras)
@@ -186,7 +196,7 @@ def key_callback(window, key, scancode, action, mods):
         glfw.set_window_should_close(window, glfw.TRUE)
     if key == glfw.KEY_G and action == glfw.PRESS:
         global cube
-        positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'])
+        positions, colors = set_voxel_positions(lookup_table, cube_grid)
         cube.set_multiple_positions(positions, colors)
 
 
