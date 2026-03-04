@@ -8,10 +8,10 @@ import glob
 # and https://docs.opencv.org/4.x/d7/d53/tutorial_py_pose.html [source_2]
 
 # Select camera
-# camera_path = "data/cam1/" # Cam 1.
+camera_path = "data/cam1/" # Cam 1.
 # camera_path = "data/cam2/" # Cam 2.
 # camera_path = "data/cam3/" # Cam 3.
-camera_path = "data/cam4/" # Cam 4.
+# camera_path = "data/cam4/" # Cam 4.
 
 # Other filepaths.
 calibration_images = glob.glob(camera_path + "intrinsic/*.png") # [!] Intrinsic folder.
@@ -197,12 +197,12 @@ def offline():
         image_size = processed_image.shape[::-1] # Update image size.
 
         # Find the chess board corners
-        has_found_corners, corners = cv.findChessboardCorners(processed_image, chessboard_size, None)
+        has_found_corners, corners = cv.findChessboardCorners(processed_image, chessboard_size, cv.CALIB_CB_NORMALIZE_IMAGE)
 
         # Apply pre-processing (if allowed) when automatic detection fails, and try again.
         if use_preprocessing and not has_found_corners:
             processed_image = pre_processing(image)
-            has_found_corners, corners = cv.findChessboardCorners(processed_image, chessboard_size, None)
+            has_found_corners, corners = cv.findChessboardCorners(processed_image, chessboard_size, cv.CALIB_CB_NORMALIZE_IMAGE)
 
         # To skip automatically detected images (including pre-processed ones).
         found_auto = has_found_corners

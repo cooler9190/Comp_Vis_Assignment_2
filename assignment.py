@@ -58,7 +58,7 @@ def get_cam_positions():
 
         # Calcualte camera center in OpenCV world coordinates
         C = -np.matrix(R).T * np.matrix(t)
-
+        C *= 5
         # Extract X, Y, Z
         x, y, z = C[0], C[1], C[2]
 
