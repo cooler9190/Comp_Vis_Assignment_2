@@ -6,7 +6,7 @@ from engine.buffer.texture import *
 from engine.buffer.hdrbuffer import HDRBuffer
 from engine.buffer.blurbuffer import BlurBuffer
 from engine.effect.bloom import Bloom
-from assignment import set_voxel_positions, generate_grid, get_cam_positions, get_cam_rotation_matrices
+from assignment import set_voxel_positions, generate_grid, get_cam_positions, get_cam_rotation_matrices, create_lookup_table, load_camera_parameters
 from engine.camera import Camera
 from engine.config import config
 
@@ -14,7 +14,7 @@ cube, hdrbuffer, blurbuffer, lastPosX, lastPosY = None, None, None, None, None
 firstTime = True
 window_width, window_height = config['window_width'], config['window_height']
 camera = Camera(glm.vec3(0, 100, 0), pitch=-90, yaw=0, speed=40)
-
+cameras = load_camera_parameters()
 
 def draw_objs(obj, program, perspective, light_pos, texture, normal, specular, depth):
     program.use()
@@ -106,7 +106,7 @@ def main():
     light_pos = glm.vec3(0.5, 0.5, 0.5)
     perspective = glm.perspective(45, window_width / window_height, config['near_plane'], config['far_plane'])
 
-    cam_rot_matrices = get_cam_rotation_matrices()
+    cam_rot_matrices = get_cam_rotation_matrices(cameras)
     cam_shapes = [Model('resources/models/camera.json', cam_rot_matrices[c]) for c in range(4)]
     square = Model('resources/models/square.json')
     cube = Model('resources/models/cube.json')
@@ -120,9 +120,11 @@ def main():
     depth_grid = load_texture_2d('resources/textures/depth_grid.jpg')
 
     grid_positions, grid_colors = generate_grid(config['world_width'], config['world_width'])
+    # Create lookup table
+    create_lookup_table(config['world_width'], config['world_height'], config['world_width'])
     square.set_multiple_positions(grid_positions, grid_colors)
 
-    cam_positions, cam_colors = get_cam_positions()
+    cam_positions, cam_colors = get_cam_positions(cameras)
     for c, cam_pos in enumerate(cam_positions):
         cam_shapes[c].set_multiple_positions([cam_pos], [cam_colors[c]])
 

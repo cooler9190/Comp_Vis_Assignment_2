@@ -4,24 +4,10 @@ import random
 import cv2 as cv
 import numpy as np
 
-block_size = 1.0
-
-# Extract camera extrinsics from XML
-cameras = []
-for i in range(1, 5):
-    filepath = f'data/cam{i}/config.xml'
-    cv_file = cv.FileStorage(filepath, cv.FILE_STORAGE_READ)
-    rvec = cv_file.getNode('RotationVectors').mat()
-    tvec = cv_file.getNode('TranslationVectors').mat()
-    cv_file.release()
-
-    # Convert rotation vector to 3x3 rotation matrix
-    R, _ = cv.Rodrigues(rvec)
-    cameras.append({'R': R, 't': tvec})
+block_size = 1
 
 current_frame = 0
 frame_max = 100
-
 def generate_grid(width, depth):
     # Generates the floor grid locations
     # You don't need to edit this function
@@ -32,6 +18,38 @@ def generate_grid(width, depth):
             colors.append([1.0, 1.0, 1.0] if (x+z) % 2 == 0 else [0, 0, 0])
     return data, colors
 
+def create_cube_grid(width, height, depth):
+    # Create ranges
+    x_range = (-width / 2 * block_size, width / 2 * block_size)
+    y_range = (0, height * block_size)
+    z_range = (-depth / 2 * block_size, depth / 2 * block_size)
+    # Create axis points
+    x_points = np.arange(x_range[0], x_range[1], block_size)
+    y_points = np.arange(y_range[0], y_range[1], block_size)
+    z_points = np.arange(z_range[0], z_range[1], block_size)
+    
+    # Return 3d grid.
+    X, Y, Z = np.meshgrid(x_points, y_points, z_points, indexing='ij')
+    return np.stack([X.ravel(), Y.ravel(), Z.ravel()], axis=-1)
+
+def load_camera_parameters():
+    cameras = []
+    for c in range(1, 5):
+        filepath = f'data/cam{c}/config.xml'
+        cv_file = cv.FileStorage(filepath, cv.FILE_STORAGE_READ)
+        cameras.append({
+            'cam_matrix': cv_file.getNode('CameraMatrix').mat(),
+            'distortion': cv_file.getNode('DistortionCoefficients').mat(),
+            'rvec': cv_file.getNode('RotationVectors').mat(),
+            'tvec': cv_file.getNode('TranslationVectors').mat()
+        })
+        cv_file.release()
+    return cameras
+
+def create_lookup_table(width, height, depth):
+    cube_grid = create_cube_grid(width, height, depth)
+
+
 
 def set_voxel_positions(width, height, depth):
     # Generates random voxel locations
@@ -40,6 +58,9 @@ def set_voxel_positions(width, height, depth):
     # Reads 1 frame from all 4 cameras, applies background subtraction,
     # and uses the resulting masks to determine which voxels are ON/OFF in the first frame.
     if current_frame > (frame_max - 1): return Exception("Frame limit Reached")
+
+    grid = create_cube_grid(width, height, depth)
+
 
     # Obtain the 4 foreground for this frame.
     foregrounds = []
@@ -55,13 +76,10 @@ def set_voxel_positions(width, height, depth):
             for z in range(depth):
                 data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
                 colors.append([x / width, z / depth, y / height])
-                # if random.randint(0, 1000) < 5:
-                #     data.append([x*block_size - width/2, y*block_size, z*block_size - depth/2])
-                #     colors.append([x / width, z / depth, y / height])
     return data, colors
 
 
-def get_cam_positions():
+def get_cam_positions(cameras):
     # Generates dummy camera locations at the 4 corners of the room
     # TODO: You need to input the estimated locations of the 4 cameras in the world coordinates.
 
@@ -69,8 +87,9 @@ def get_cam_positions():
     cam_colors = [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 1.0, 0]]
 
     for cam in cameras:
-        R = cam['R']
-        t = cam['t']
+        R = cam['rvec']
+        R, _ = cv.Rodrigues(R)
+        t = cam['tvec']
 
         # Calcualte camera center in OpenCV world coordinates
         C = -np.matrix(R).T * np.matrix(t)
@@ -95,7 +114,7 @@ def get_cam_positions():
     #     [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 1.0, 0]]
 
 
-def get_cam_rotation_matrices():
+def get_cam_rotation_matrices(cameras):
     # Generates dummy camera rotation matrices, looking down 45 degrees towards the center of the room
     # TODO: You need to input the estimated camera rotation matrices (4x4) of the 4 cameras in the world coordinates.
 
@@ -104,7 +123,8 @@ def get_cam_rotation_matrices():
 
     for cam in cameras:
         # R transforms World -> Camera. We need Camera -> World, which is R^T
-        R = cam['R']
+        R = cam['rvec']
+        R, _ = cv.Rodrigues(R)
         R_c2w = R.T
 
         # Create a 4x4 transformation matrix
