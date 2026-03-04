@@ -66,7 +66,7 @@ def show_image(image, window):
     # Resize window.
     if resize_windows:
         h, w = image.shape[:2]
-        cv.resizeWindow(window, w, h)
+        cv.resizeWindow(window, 2 * w, 2 * h)
     # Draw the image with cube and axis.
     cv.imshow(window, image)
 
@@ -84,7 +84,7 @@ def manual_click_event(event, x, y, flags, params):
             print(f"Captured point {len(points)}: ({x}, {y})")
 
             # Visual Feedback: Draw a circle and order number
-            cv.circle(img_display, (x, y), 5, (0, 255, 0), -1) # Green circle
+            cv.circle(img_display, (x, y), 2, (0, 255, 0), -1) # Green circle
             cv.putText(img_display, str(len(points)), (x + 10, y), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 1)
             cv.imshow(window_name, img_display)
 
@@ -332,7 +332,6 @@ def online(intrinsic, distortion):
 
     # Solve PnP to get pose.
     has_pose, rvecs, tvecs = cv.solvePnP(object_points_world, refined_corners, intrinsic, distortion)
-
     if has_pose:
         # Draw axes
         if should_draw_axes:

@@ -1,3 +1,4 @@
+import os
 import glm
 import random
 import cv2 as cv
@@ -18,6 +19,8 @@ for i in range(1, 5):
     R, _ = cv.Rodrigues(rvec)
     cameras.append({'R': R, 't': tvec})
 
+current_frame = 0
+frame_max = 100
 
 def generate_grid(width, depth):
     # Generates the floor grid locations
@@ -33,6 +36,19 @@ def generate_grid(width, depth):
 def set_voxel_positions(width, height, depth):
     # Generates random voxel locations
     # TODO: You need to calculate proper voxel arrays instead of random ones.
+
+    # Reads 1 frame from all 4 cameras, applies background subtraction,
+    # and uses the resulting masks to determine which voxels are ON/OFF in the first frame.
+    if current_frame > (frame_max - 1): return Exception("Frame limit Reached")
+
+    # Obtain the 4 foreground for this frame.
+    foregrounds = []
+    for cam in range(1, 5):
+        camera_path = os.path.join(f"data/cam{cam}/")
+        foreground_path = camera_path + f"foreground/{current_frame}.png"
+        foreground = cv.imread(foreground_path, cv.COLOR_BGR2GRAY)
+        foregrounds.append(foreground)
+
     data, colors = [], []
     for x in range(width):
         for y in range(height):
@@ -58,7 +74,6 @@ def get_cam_positions():
 
         # Calcualte camera center in OpenCV world coordinates
         C = -np.matrix(R).T * np.matrix(t)
-        C *= 5
         # Extract X, Y, Z
         x, y, z = C[0], C[1], C[2]
 
@@ -83,6 +98,30 @@ def get_cam_positions():
 def get_cam_rotation_matrices():
     # Generates dummy camera rotation matrices, looking down 45 degrees towards the center of the room
     # TODO: You need to input the estimated camera rotation matrices (4x4) of the 4 cameras in the world coordinates.
+
+    # Converts the OpenCV 3x3 roation matrices into 4x4 OpenGL model matrices
+    cam_rotations = []
+
+    for cam in cameras:
+        # R transforms World -> Camera. We need Camera -> World, which is R^T
+        R = cam['R']
+        R_c2w = R.T
+
+        # Create a 4x4 transformation matrix
+        mat = np.eye(4, dtype=np.float32)
+        mat[:3, :3] = R_c2w
+
+        # Convert to GLM matrix
+        glm_mat = glm.mat4(*mat.flatten())
+
+        # Rotate 180 degrees around the X-axis because
+        # OpenCV cameras look down +Z, but OpenGL cameras look down -Z
+        glm_mat = glm.rotate(glm_mat, np.pi, glm.vec3(1, 0, 0))
+
+        cam_rotations.append(glm_mat)
+
+    return cam_rotations
+
     cam_angles = [[0, 45, -45], [0, 135, -45], [0, 225, -45], [0, 315, -45]]
     cam_rotations = [glm.mat4(1), glm.mat4(1), glm.mat4(1), glm.mat4(1)]
     for c in range(len(cam_rotations)):
