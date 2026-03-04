@@ -3,7 +3,7 @@ import cv2 as cv
 import glob
 import os
 
-# Clean manual images; given an pre-exported image sequence (from the intrinsic video, using premiere pro).
+# Clean manual images; given a pre-exported image sequence (from the intrinsic video, using premiere pro).
 
 # Using Code from https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html [source_1]
 # and https://docs.opencv.org/4.x/d7/d53/tutorial_py_pose.html [source_2]
@@ -15,7 +15,6 @@ import os
 calibration_images = glob.glob('data/cam4/intrinsic/*.png') # [!] Clean Camera 4 image sequence to use for intrinsic calibration.
 
 # Settings
-use_preprocessing = True
 resize_windows = False
 chessboard_size = (8, 6) # From checkerboard.xml
 
@@ -31,24 +30,6 @@ def show_image(image, window):
     # Draw the image with cube and axis.
     cv.imshow(window, image)
 
-# Perform pre-processing pipeline (noise reduction -> gray -> sharpening)
-def pre_processing(image):
-    if not use_preprocessing:
-        return cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-
-    # Noise Reduction on color, with bilateral filtering (blur)
-    blur = cv.bilateralFilter(image,9,25,13)
-
-    # Grayscale
-    gray = cv.cvtColor(blur, cv.COLOR_BGR2GRAY)
-
-    # Sharpening via unsharp (Gaussian) mask (edge strengthening).
-    blur = cv.GaussianBlur(gray, (9,9), 0)
-    mask_weight = -0.4 # Determined through trial and error.
-    sharp = cv.addWeighted(gray, 1.0, blur, mask_weight, 0)
-
-    return sharp
-
 def clean_manual():
     # Update arrays with corner points from the images.
     for filename in calibration_images:
@@ -58,11 +39,6 @@ def clean_manual():
 
         # Find the chess board corners
         has_found_corners, corners = cv.findChessboardCorners(processed_image, chessboard_size, None)
-
-        # Apply pre-processing (if allowed) when automatic detection fails, and try again.
-        if use_preprocessing and not has_found_corners:
-            processed_image = pre_processing(image)
-            has_found_corners, corners = cv.findChessboardCorners(processed_image, chessboard_size, None)
 
         # To skip automatically detected images (including pre-processed ones).
         found_auto = has_found_corners

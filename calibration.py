@@ -8,10 +8,10 @@ import glob
 # and https://docs.opencv.org/4.x/d7/d53/tutorial_py_pose.html [source_2]
 
 # Select camera
-camera_path = "data/cam1/" # Cam 1.
-# camera_path = "data/cam2/ # Cam 2.
+# camera_path = "data/cam1/" # Cam 1.
+# camera_path = "data/cam2/" # Cam 2.
 # camera_path = "data/cam3/" # Cam 3.
-# camera_path = "data/cam4/" # Cam 4.
+camera_path = "data/cam4/" # Cam 4.
 
 # Other filepaths.
 calibration_images = glob.glob(camera_path + "intrinsic/*.png") # [!] Intrinsic folder.
@@ -20,7 +20,7 @@ test_images = glob.glob(camera_path + "checkerboard.avi") # [!] Is ignored durin
 axis_image = camera_path + "axes.png"
 
 # General settings
-use_preprocessing = True # A1 - Toggle Choice 5
+use_preprocessing = False # A1 - Toggle Choice 5
 use_warping = False # A1 - Toggle Choice 3
 camera_index = 0
 
@@ -40,12 +40,12 @@ x_text = 20
 height_interval_text = 30
 
 # Window Settings
-resize_windows = False
+resize_windows = True
 window_auto_corners = 'Chessboard Corners'
 window_online = 'Axis and Cube'
 
 # Chessboard settings.
-chessboard_size = (8, 6) # Note that the board is 9 (width) by  7 (height) cells. Therefore, the inner size (w-1, h-1) is 8x6.
+chessboard_size = (8, 6)
 chessboard_width = chessboard_size[0]
 chessboard_height = chessboard_size[1]
 chessboard_cells = chessboard_size[0] * chessboard_size[1] # Width x Height
@@ -66,8 +66,7 @@ def show_image(image, window):
     # Resize window.
     if resize_windows:
         h, w = image.shape[:2]
-        ratio = 800 / w
-        cv.resizeWindow(window, 800, int(h * ratio))
+        cv.resizeWindow(window, w, h)
     # Draw the image with cube and axis.
     cv.imshow(window, image)
 
@@ -188,6 +187,8 @@ def offline():
     object_points = [] # 3d point in real world space.
     image_points = [] # 2d points in image plane.
 
+    size = len(calibration_images)
+
     # Update arrays with corner points from the images.
     for filename in calibration_images:
         # Read image and turn into gray scale.
@@ -237,10 +238,11 @@ def offline():
 
             # Disable callback.
             cv.setMouseCallback(window_auto_corners, lambda *args : None)
-        
+
         #If corners found, add object points, and image points (after refining them).
         if has_found_corners:
-            print("Corners found for image:", filename)
+            print("to go: ", str(size))
+            size -= 1
             # Add object points (static; only dependent on chessboard size)
             object_points.append(object_points_world)
 
@@ -261,8 +263,8 @@ def offline():
     # Use corners to calibrate camera.
     if image_size == (0, 0):
         raise Exception("Last image either 0x0, or no valid images provided.")
+    print("Calculating intrinsics...")
     return cv.calibrateCamera(object_points, image_points, image_size, None, None)
-
 
 # Draws 3D axes gizmo on the origin top-left cell of the chessboard.
 def draw_axes(axis_points, rvecs, tvecs, intrinsic, distortion, refined_corners, image):
@@ -281,97 +283,6 @@ def draw_axes(axis_points, rvecs, tvecs, intrinsic, distortion, refined_corners,
     # Text
     if should_draw_text:
         updated_image = cv.putText(updated_image, "Showing Axes", (x_text, height_interval_text), cv.FONT_HERSHEY_SIMPLEX, scale_text, (0, 255, 0), thickness_text)
-
-    return updated_image
-
-# Calculates distance from center point of cube's top face, to the camera.
-def calculate_top_center_distance(rotation_matrix, tvecs, top_center):
-    # Obtain top center in camera space.
-    top_center_camera = rotation_matrix @ top_center.reshape(3,1) + tvecs # x_cam = R * x_world + t
-
-    # Compute distance from camera (origin in camera space) to top center (in camera space)
-    distance = np.linalg.norm(top_center_camera) # Just pythagoras (length or normalization factor)
-    if distance < 0: raise Exception("Distance between camera and top center is negative?! UH OH") # Distance can't be negative!
-    return distance
-
-# HSV, Value component based on distance between Center Point on cube's top face and Camera.
-# A greater distance means a lower value: [0, 4] meters -> [255, 0] value.
-def value_from_distance(distance):
-    # Clamp distance and modulate value.
-    clamped_distance = np.clip(distance, 0, 4) # Clip ensures d > 4 -> d = 4.
-    return int(np.round(255 * (1 - clamped_distance / 4))) # [0, 4] -> [255, 0].
-
-# Given a hue, saturation and value, computes a tuple in Blue-Green-Red color space.
-def BGR_from_HSV(hue, saturation, value):
-    hsv_image = np.uint8([[[hue, saturation, value]]]) # Create 1x1 pixel fake image with hsv color
-    bgr_image = cv.cvtColor(hsv_image, cv.COLOR_HSV2BGR)[0,0] # Then convert color space of the image, and extract pixel color at (0, 0).
-    return tuple(int(c) for c in bgr_image) # Turn array into tuple.
-
-# HSV, Hue component based on angle between cube's top face and the Camera.
-# A greater angle means a lower hue: [0, 45] -> [179, 0] hue.
-def calculate_hue(rotation_matrix):
-    # cos θ = board_normal ⋅ cam_normal / ||b_n|| x ||c_n||. c_n is forward column (when used camera space).
-    forward_column = np.array([0, 0, 1]).reshape(3,1) # Forward column vector (space-independent)
-    board_normal = rotation_matrix @ forward_column # Obtain normal in camera space.
-    board_normal_length = np.linalg.norm(board_normal) # Just pythagoras (length or normalization factor)
-    cos_theta = np.dot(board_normal.ravel(), forward_column.ravel()) / board_normal_length # Note that c_n has length 1, so just divide by b_n length.
-
-    # Clamp angle and modulate hue.
-    theta_radians = np.arccos(np.clip(cos_theta, -1.0, 1.0)) # Clips for safety, due to floating point errors.
-    theta_degrees = np.degrees(theta_radians) # Convert to degrees.
-    clamped_angle = np.clip(theta_degrees, 0, 45) # Clip ensures a > 45 -> a = 45 AND a < 0 -> a = 0
-    hue = int(np.round(179 * (1 - clamped_angle / 45)))
-    return hue # [0, 45] -> [179, 0]
-
-# Draws a 3D cube on the top-left (inner) cell of the chessboard.
-def draw_cube(cube_points, rvecs, tvecs, intrinsic, distortion, image):
-    # Convert cube point: world space (3d) -> image space (2d).
-    image_points, _ = cv.projectPoints(cube_points, rvecs, tvecs, intrinsic, distortion) # Project 3D cube points to image plane (2d).
-    image_points = np.int32(image_points).reshape(-1, 2) # Drawing requires (2D) int coordinates (this does truncate btw).
-
-    # Draw bottom face.
-    cube_color = (250, 250, 0)
-    updated_image = cv.drawContours(image, [image_points[:4]],-1, cube_color, thickness_cube)
-    # Draw pillars.
-    for i,j in zip(range(4),range(4,8)):
-        updated_image = cv.line(updated_image, tuple(image_points[i]), tuple(image_points[j]), cube_color, thickness_cube)
-
-    # Obtain top points and center (world space)
-    top_points = cube_points[4:]
-    top_center = top_points.mean(axis=0)
-
-    # Calculate distance from center to camera (in meters).
-    rotation_matrix, _ = cv.Rodrigues(rvecs) # Obtain rotation matrix from rvecs.
-    distance = calculate_top_center_distance(rotation_matrix, tvecs, top_center)
-
-    # Calculate value for top face color using distance.
-    value = value_from_distance(distance)
-
-    # Calculate hue for top face color using angle.
-    hue = calculate_hue(rotation_matrix)
-
-    # Draw top face using hue and value for the color.
-    top_face_color = BGR_from_HSV(hue, 255, value)
-    updated_image = cv.fillConvexPoly(updated_image, image_points[4:], top_face_color) # so it can be used when drawing top face.
-    # [!] Alt. method? image = cv.drawContours(image, [image_points[4:]],-1,cube_color, -1)
-
-    # Draw top face center point.
-    top_center_projected, _ = cv.projectPoints(top_center, rvecs, tvecs, intrinsic, distortion)
-    top_center_projected = top_center_projected[0][0].astype("int32")
-    updated_image = cv.circle(updated_image, top_center_projected, 3 * thickness_cube, (255, 255, 255), -1)
-
-    # Draw distance text.
-    if should_draw_text:
-        dist_text = "Distance (m): " + str(distance)
-        dist_text_short = "Distance (m): " + str(round(distance, 2))
-        pos =  top_center_projected + (20, -15) # Little to the top right.
-        updated_image = cv.putText(updated_image, dist_text_short, pos, cv.FONT_HERSHEY_SIMPLEX, scale_text, top_face_color, thickness_text)
-        # Draw the same text at the top of the screen, just in case it goes off-screen.
-        updated_image = cv.putText(updated_image, dist_text, (x_text, height_interval_text * 3), cv.FONT_HERSHEY_SIMPLEX, scale_text, top_face_color, thickness_text)
-
-    # Text
-    if should_draw_text:
-        updated_image = cv.putText(updated_image, "Showing Cube", (x_text, height_interval_text * 2), cv.FONT_HERSHEY_SIMPLEX, scale_text, cube_color, thickness_text)
 
     return updated_image
 
@@ -396,9 +307,9 @@ def online(intrinsic, distortion):
         print("Can't read video file. Exiting ...")
         return
 
-    gray_image = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
-    # assignment specifies to not use auto detection; so manual is performed...
+    # Find the chess board corners
+    processed_image = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     print("Find corners manually")
     manual_display = frame.copy()
     manual_corners = []
@@ -410,14 +321,14 @@ def online(intrinsic, distortion):
         cv.waitKey(10)
 
     if use_warping:
-        corners = get_inner_corners_warping(gray_image, manual_corners, chessboard_size)
+        corners = get_inner_corners_warping(processed_image, manual_corners, chessboard_size)
     else:
         corners = get_inner_corners_manual(manual_corners, chessboard_size)
 
     cv.setMouseCallback(window_online, lambda *args: None)
 
     # Refine corners
-    refined_corners = cv.cornerSubPix(gray_image, corners, (11, 11), (-1, -1), criteria)
+    refined_corners = cv.cornerSubPix(processed_image, corners, (11, 11), (-1, -1), criteria)
 
     # Solve PnP to get pose.
     has_pose, rvecs, tvecs = cv.solvePnP(object_points_world, refined_corners, intrinsic, distortion)
@@ -465,15 +376,15 @@ def save_camera_config(filepath, reprojection_error, intrinsic, distortion, rota
 
 def main():
     reprojection_error, intrinsic, distortion, _, _ = offline()
-    # print("Reprojection Error (px):", reprojection_error)
-    # print("intrinsic / Camera Matrix:")
-    # print(intrinsic)
-    # print("rotation:")
-    # print(rotation)
-    # print("translation:")
-    # print(translation)
+    print("Reprojection Error (px):", reprojection_error)
+    print("intrinsic / Camera Matrix:")
+    print(intrinsic)
 
     rotation, translation = online(intrinsic, distortion)
+    print("rotation:")
+    print(rotation)
+    print("translation:")
+    print(translation)
 
     save_camera_config(config_path, reprojection_error, intrinsic, distortion, rotation, translation)
 main()

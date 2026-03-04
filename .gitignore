@@ -1,7 +1,11 @@
 /data/cam1/intrinsic
+/data/cam1/intrinsic_full
 /data/cam2/intrinsic
+/data/cam2/intrinsic_full
 /data/cam3/intrinsic
+/data/cam3/intrinsic_full
 /data/cam4/intrinsic
+/data/cam4/intrinsic_full
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
