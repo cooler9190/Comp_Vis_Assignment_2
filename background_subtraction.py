@@ -3,17 +3,21 @@ import numpy as np
 import cv2 as cv
 
 # Select camera
-camera_path = "data/cam1/" # Cam 1.
+# camera_path = "data/cam1/" # Cam 1.
 # camera_path = "data/cam2/" # Cam 2.
 # camera_path = "data/cam3/" # Cam 3.
-# camera_path = "data/cam4/" # Cam 4.
+camera_path = "data/cam4/" # Cam 4.
+
+# General settings
 show_model = False
 background_path = os.path.join(camera_path, "background.avi")
 video_path = os.path.join(camera_path, "video.avi")
+store_path = os.path.join(camera_path, "foreground/")
+use_postprocessing = True
 
 # Subtraction thresholds
-hue_threshold = 30
-saturation_threshold = 40
+hue_threshold = 20
+saturation_threshold = 35
 value_threshold = 40
 thresholds = (hue_threshold, saturation_threshold, value_threshold)
 
@@ -101,11 +105,31 @@ def subtract_background(background_model):
         # Foreground mask.
         foreground_mask = cv.bitwise_or(cv.bitwise_or(hue_mask, saturation_mask), value_mask)
 
+        # Perform opening and then closing
+        if use_postprocessing:
+            # Step 1, morphological open -> close.
+            # An elliptical kernel to better preserve the object shapes
+            kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))
+            foreground_mask = cv.morphologyEx(foreground_mask, cv.MORPH_OPEN, kernel) # Opening
+            foreground_mask = cv.morphologyEx(foreground_mask, cv.MORPH_CLOSE, kernel) # Closing
 
+            # Step 2, remove blobs with small area (checking for connections).
+            num_labels, labels, stats, _ = cv.connectedComponentsWithStats(foreground_mask)
+            output = np.zeros(foreground_mask.shape, dtype=np.uint8)
+            for i in range(1, num_labels):
+                area = stats[i, cv.CC_STAT_AREA]
+                area_threshold = 500
+                if area > area_threshold: output[labels == i] = 255
+            foreground_mask = output
 
-        show_image(foreground_mask, "Oops")
-        cv.waitKey(0)
-        cv.destroyAllWindows()
+        if show_model:
+            show_image(foreground_mask, "Oops")
+            cv.waitKey(0)
+            cv.destroyAllWindows()
+
+        # Store frame.
+        path = store_path + str(frame_index) + ".png"
+        cv.imwrite(path, foreground_mask)
 
 def main():
     background_model = create_background_model()
