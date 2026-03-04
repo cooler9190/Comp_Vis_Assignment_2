@@ -1,3 +1,8 @@
+/data/cam1/intrinsic
+/data/cam2/intrinsic
+/data/cam3/intrinsic
+/data/cam4/intrinsic
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
