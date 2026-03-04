@@ -48,7 +48,7 @@ def load_camera_parameters():
 
 def create_lookup_table(cube_grid, cameras):
     cube_size = cube_grid.shape[0]
-    # Convert cube to correct coordinates (opengl)
+    # Convert cube to correct coordinates (openGL)
     world_cube = cube_grid.astype(np.float64) * 0.05 # Scale to fit.
     world_cube = np.stack([world_cube[:, 0], world_cube[:, 2], -world_cube[:, 1]], axis=1) # openGL format.
 
@@ -89,6 +89,7 @@ def is_voxel_foreground(lookup_table, voxel_index, foregrounds):
 def set_voxel_positions(lookup_table, cube_grid):
     # Reads 1 frame from all 4 cameras, applies background subtraction,
     # and uses the resulting masks to determine which voxels are ON/OFF in the first frame.
+    global current_frame
     if current_frame > (frame_max - 1): return Exception("Frame limit Reached")
 
     # Obtain the 4 foreground for this frame.
@@ -107,8 +108,9 @@ def set_voxel_positions(lookup_table, cube_grid):
     # Create cube where all visible voxels are marked.
     visible_voxels = cube_grid[cube_mask] # This turns off all non-visible voxels.
 
-    # Default color is white.
-    colors = np.ones((visible_voxels.shape[0], 3), dtype=np.float32)
+    # Default color is gray.
+    colors = np.ones((visible_voxels.shape[0], 3), dtype=np.float32) * 0.5
+    current_frame += 1 # Go to next frame.
     return visible_voxels, colors
 
 def get_cam_positions(cameras):
@@ -136,7 +138,6 @@ def get_cam_positions(cameras):
         cam_positions.append([opengl_x * scale, opengl_y * scale, opengl_z * scale])
 
     return cam_positions, cam_colors
-
 
 def get_cam_rotation_matrices(cameras):
 
